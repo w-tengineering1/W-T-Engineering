@@ -1,0 +1,114 @@
+Public Class MainForm
+    Private Sub MainForm_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        ' Set form properties
+        Me.Text = "Hardware Supply Company - Main Dashboard"
+        Me.WindowState = FormWindowState.Maximized
+        
+        ' Initialize connection
+        InitializeDatabase()
+        
+        ' Load dashboard data
+        LoadDashboard()
+    End Sub
+    
+    Private Sub InitializeDatabase()
+        Try
+            ' Database connection string
+            Dim connectionString As String = "Server=.\SQLEXPRESS;Database=HardwareSupplyDB;Integrated Security=True;"
+            
+            ' Create tables if they don't exist
+            Using conn As New SqlConnection(connectionString)
+                conn.Open()
+                
+                ' Products table
+                Dim createProductsTable As String = "
+                IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Products' AND xtype='U')
+                CREATE TABLE Products (
+                    ProductID INT PRIMARY KEY IDENTITY(1,1),
+                    ProductCode VARCHAR(20) UNIQUE,
+                    ProductName VARCHAR(100),
+                    ProductType VARCHAR(50), -- Bolt, Nut, Welding
+                    Category VARCHAR(50), -- Steel, Stainless Steel, Aluminum, etc.
+                    Size VARCHAR(50),
+                    Unit VARCHAR(20),
+                    StockQuantity INT DEFAULT 0,
+                    ReorderLevel INT DEFAULT 10,
+                    UnitPrice DECIMAL(10,2),
+                    SupplierID INT,
+                    DateAdded DATETIME DEFAULT GETDATE()
+                )"
+                
+                ' Customers table
+                Dim createCustomersTable As String = "
+                IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Customers' AND xtype='U')
+                CREATE TABLE Customers (
+                    CustomerID INT PRIMARY KEY IDENTITY(1,1),
+                    CustomerCode VARCHAR(20) UNIQUE,
+                    CompanyName VARCHAR(100),
+                    ContactPerson VARCHAR(100),
+                    Phone VARCHAR(20),
+                    Email VARCHAR(100),
+                    Address VARCHAR(255),
+                    CustomerType VARCHAR(50), -- Regular, Wholesale, Contract
+                    CreditLimit DECIMAL(10,2),
+                    DateRegistered DATETIME DEFAULT GETDATE()
+                )"
+                
+                ' Sales table
+                Dim createSalesTable As String = "
+                IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Sales' AND xtype='U')
+                CREATE TABLE Sales (
+                    SaleID INT PRIMARY KEY IDENTITY(1,1),
+                    InvoiceNo VARCHAR(50) UNIQUE,
+                    CustomerID INT,
+                    SaleDate DATETIME DEFAULT GETDATE(),
+                    TotalAmount DECIMAL(10,2),
+                    Discount DECIMAL(10,2) DEFAULT 0,
+                    Tax DECIMAL(10,2) DEFAULT 0,
+                    GrandTotal DECIMAL(10,2),
+                    PaymentMethod VARCHAR(50),
+                    PaymentStatus VARCHAR(50),
+                    FOREIGN KEY (CustomerID) REFERENCES Customers(CustomerID)
+                )"
+                
+                ' SaleDetails table
+                Dim createSaleDetailsTable As String = "
+                IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='SaleDetails' AND xtype='U')
+                CREATE TABLE SaleDetails (
+                    SaleDetailID INT PRIMARY KEY IDENTITY(1,1),
+                    SaleID INT,
+                    ProductID INT,
+                    Quantity INT,
+                    UnitPrice DECIMAL(10,2),
+                    TotalPrice DECIMAL(10,2),
+                    FOREIGN KEY (SaleID) REFERENCES Sales(SaleID),
+                    FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
+                )"
+                
+                ' Suppliers table
+                Dim createSuppliersTable As String = "
+                IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Suppliers' AND xtype='U')
+                CREATE TABLE Suppliers (
+                    SupplierID INT PRIMARY KEY IDENTITY(1,1),
+                    SupplierCode VARCHAR(20) UNIQUE,
+                    CompanyName VARCHAR(100),
+                    ContactPerson VARCHAR(100),
+                    Phone VARCHAR(20),
+                    Email VARCHAR(100),
+                    Address VARCHAR(255),
+                    SupplierType VARCHAR(50),
+                    DateAdded DATETIME DEFAULT GETDATE()
+                )"
+                
+                Dim cmd As New SqlCommand(createProductsTable & createCustomersTable & 
+                                         createSalesTable & createSaleDetailsTable & 
+                                         createSuppliersTable, conn)
+                cmd.ExecuteNonQuery()
+            End Using
+            
+        Catch ex As Exception
+            MessageBox.Show("Database initialization error: " & ex.Message)
+        End Try
+    End Sub
+    
+    Private Sub LoadDashboard()
